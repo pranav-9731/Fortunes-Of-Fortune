@@ -10,7 +10,6 @@ import {
   ProofStatus,
   Winner,
 } from "./adminTypes";
-import { generateTicket } from "./useAppState";
 import { Score } from "./types";
 
 const USERS_KEY = "digitalheroes_admin_users_v1";
@@ -29,10 +28,7 @@ function loadJSON<T>(key: string, fallback: T): T {
 
   try {
     const raw = window.localStorage.getItem(key);
-
-    if (raw) {
-      return JSON.parse(raw);
-    }
+    if (raw) return JSON.parse(raw);
   } catch (e) {
     // fall through
   }
@@ -46,6 +42,50 @@ function saveJSON(key: string, value: unknown) {
   } catch (e) {
     // best effort only
   }
+}
+
+function hashStr(str: string) {
+  let h = 2166136261;
+
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+
+  return h >>> 0;
+}
+
+function mulberry32(seed: number) {
+  let a = seed;
+
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function generateTicket(scores: Score[]): number[] | null {
+  if (scores.length < 5) return null;
+
+  const seedStr = scores
+    .map((s) => `${s.score_date}:${s.points}`)
+    .sort()
+    .join("|");
+
+  const rng = mulberry32(hashStr(seedStr));
+  const nums = new Set<number>();
+
+  while (nums.size < 5) {
+    nums.add(1 + Math.floor(rng() * 49));
+  }
+
+  return Array.from(nums).sort((a, b) => a - b);
 }
 
 function drawRandom(): number[] {
@@ -113,7 +153,6 @@ function computeTiers(
     if (u.status !== "active") return;
 
     const ticket = generateTicket(u.scores);
-
     if (!ticket) return;
 
     const matches = ticket.filter((n) =>
@@ -356,9 +395,7 @@ export function useAdminState() {
     const month = currentMonthLabel();
     const drawId = "draw" + Date.now();
 
-    const tier5 = draft.simulatedTiers.find(
-      (t) => t.tier === 5
-    );
+    const tier5 = draft.simulatedTiers.find((t) => t.tier === 5);
 
     if (!tier5) return;
 
@@ -371,9 +408,7 @@ export function useAdminState() {
       totalPool,
       jackpotRolloverIn: jackpotRollover,
       jackpotRolloverOut:
-        tier5.winnerIds.length > 0
-          ? 0
-          : tier5.poolShare,
+        tier5.winnerIds.length > 0 ? 0 : tier5.poolShare,
       publishedAt: new Date().toISOString(),
     };
 
