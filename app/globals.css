@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: #0B1311;
+  color: #F3F1E7;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 85% 6%, rgba(212,175,55,0.08), transparent 45%),
+    radial-gradient(circle at 8% 80%, rgba(224,90,71,0.06), transparent 40%);
+}
+
+::selection {
+  background: #D4AF37;
+  color: #0B1311;
+}
+
+input[type="range"] {
+  accent-color: #E05A47;
+}
