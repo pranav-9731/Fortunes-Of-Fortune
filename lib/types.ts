@@ -26,6 +26,7 @@ export interface Profile {
   onboarded: boolean;
   joined_date: string;
   renew_date: string | null;
+  razorpay_subscription_id: string | null;
 }
 
 export interface Score {

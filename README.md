@@ -463,13 +463,36 @@ rather than implementing direct Supabase Storage uploads.
 
 ### Payments
 
-The product requirements reference Stripe.
+The subscription flow uses **Razorpay Subscriptions** with Razorpay Standard
+Checkout. The monthly and yearly plans are represented by Razorpay recurring
+Plans, while FortuneArc keeps the selected charity and charity split in the
+Razorpay subscription notes.
 
-A payment gateway is **not currently wired into this implementation**.
-The current subscription action changes the subscription state directly.
+The payment flow is:
 
-Real payment processing is therefore a known remaining integration
-rather than something this repository claims to implement.
+1. The subscriber selects a plan and charity in the existing onboarding modal.
+2. A server-side action validates the selected charity and configured Razorpay
+   Plan before creating a subscription.
+3. The browser opens Razorpay-hosted Standard Checkout using the returned
+   subscription ID.
+4. Razorpay returns the payment ID, subscription ID, and signature to the
+   client handler.
+5. The server verifies the subscription payment signature using the server-only
+   Razorpay secret and the subscription ID stored for the signed-in user.
+6. After successful verification, FortuneArc activates the matching Supabase
+   profile and records the renewal date.
+7. A signed Razorpay webhook at `/api/razorpay/webhook` keeps subscription
+   status synchronized for authenticated, activated, charged, cancelled,
+   completed, and halted subscription events.
+
+The Razorpay key secret and webhook secret remain server-only. The Razorpay
+key ID is safe to expose to the browser because Standard Checkout requires it.
+Plan IDs are configured server-side so the client cannot choose arbitrary
+prices.
+
+For an existing Supabase database, run `supabase/payment_migration.sql` once
+before deploying the payment changes. Fresh database setup through
+`supabase/schema.sql` already includes the Razorpay subscription column.
 
 ------------------------------------------------------------------------
 
@@ -477,10 +500,10 @@ rather than something this repository claims to implement.
 
 The following features are intentionally not implemented yet:
 
--   Real payment processing
 -   Direct screenshot/file uploads through Supabase Storage
--   Production payment webhook handling
--   Payment reconciliation and failed-payment recovery
+-   Full production payment reconciliation for every possible Razorpay billing
+    edge case
+-   Automated recovery workflows for failed renewals
 
 These can be added without replacing the existing authentication and RLS
 architecture.
@@ -540,9 +563,17 @@ These may be used by browser-side Supabase clients.
 ``` env
 SUPABASE_SERVICE_ROLE_KEY=
 ADMIN_SIGNUP_KEY=
+NEXT_PUBLIC_RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
+RAZORPAY_MONTHLY_PLAN_ID=
+RAZORPAY_YEARLY_PLAN_ID=
 ```
 
-These must never be exposed to the client or committed to Git.
+These must never be exposed to the client or committed to Git. The Razorpay
+Plan IDs should point to recurring INR Plans matching ₹499/month and
+₹4,999/year. `NEXT_PUBLIC_RAZORPAY_KEY_ID` is intentionally public because
+Razorpay Standard Checkout requires the key ID in the browser.
 
 ------------------------------------------------------------------------
 

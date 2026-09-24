@@ -51,8 +51,16 @@ create table if not exists public.profiles (
   onboarded boolean not null default false,
   joined_date date not null default current_date,
   renew_date date,
+  razorpay_subscription_id text,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists razorpay_subscription_id text;
+
+create unique index if not exists profiles_razorpay_subscription_idx
+  on public.profiles(razorpay_subscription_id)
+  where razorpay_subscription_id is not null;
 
 create index if not exists profiles_status_idx
   on public.profiles(status);
